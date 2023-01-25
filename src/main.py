@@ -14,6 +14,7 @@ from bot import (
     semester_choice,
     semester_choice_callback,
     start,
+    teacher_input,
     unknown,
 )
 from config import TG_TOKEN
@@ -34,6 +35,8 @@ def main():
     semester_callback_handler = CallbackQueryHandler(
         callback=semester_choice_callback)
     group_input_handler = CommandHandler(command='group', callback=group_input)
+    teacher_input_handler = CommandHandler(command='teacher',
+                                           callback=teacher_input)
     help_handler = CommandHandler(command='help', callback=help)
     unknown_handler = MessageHandler(filters=filters.COMMAND | filters.TEXT,
                                      callback=unknown)
@@ -42,6 +45,7 @@ def main():
     app.add_handler(semester_handler)
     app.add_handler(semester_callback_handler)
     app.add_handler(group_input_handler)
+    app.add_handler(teacher_input_handler)
     app.add_handler(help_handler)
     app.add_handler(unknown_handler)
 

@@ -3,6 +3,7 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+from db import get_redis_connection, get_users_collection
 from timetable_scraper import TimetableScraper
 from utils import compose_timetable, compose_timetables
 
@@ -20,7 +21,8 @@ DAYS = {
     _("Пятница"),
     _("Суббота")
 }
-users_options = {}
+users_db = get_users_collection()
+r = get_redis_connection()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -31,10 +33,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     For example: /group СУЛА-308С 
     For more information, use the /help command.
     """)
-    if update.effective_chat.id not in users_options:
-        users_options[update.effective_chat.id] = {
-            'semester': 2,
-        }
+    user_id = update.effective_chat.id
+    if users_db.count_documents({'user_id': user_id}) == 0:
+        users_db.insert_one({'user_id': user_id, 'semester': 2})
     await context.bot.send_message(chat_id=update.effective_chat.id,
                                    text=start_message)
 
@@ -57,12 +58,16 @@ async def semester_choice_callback(update: Update,
     query = update.callback_query
     await query.answer()
     logging.info("Selected semester: %s" % (query.data))
-    users_options[update.effective_chat.id]['semester'] = int(query.data)
+    users_db.update_one({'user_id': update.effective_chat.id},
+                        {'$set': {
+                            'semester': int(query.data)
+                        }})
     await context.bot.send_message(chat_id=update.effective_chat.id,
                                    text=_('Semester changed'))
 
 
 async def group_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Get group name from user and reply with timetable"""
     if len(context.args) == 0:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -86,33 +91,133 @@ async def group_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     logging.info("Entered group: %s" % (group))
-    scraper = TimetableScraper(
-        academic_year=ACADEMIC_YEAR,
-        headless=True,
-        group=group,
-        semester=users_options[update.effective_chat.id]['semester'])
     try:
+        user = users_db.find_one({'user_id': update.effective_chat.id})
+        scraper = TimetableScraper(academic_year=ACADEMIC_YEAR,
+                                   headless=True,
+                                   group=group,
+                                   semester=user['semester'])
+        # If day is specified, send only one day timetable
+        if day:
+            # Check if timetable is in cache
+            key = f'{group.lower()}_{day.lower()}'
+            if r.exists(key):
+                message = r.get(key).decode('utf-8')
+                logging.info("Got timetable %s from cache" % (key))
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id, text=message)
+                return
+            timetable_dict = scraper.get_timetables_dict()
+            message = compose_timetable(timetable_dict, day)
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text=message)
+            # Save timetable to cache
+            r.set(key, message)
+            logging.info("Saved timetable %s to cache" % (key))
+            return
+        # If day is not specified, send all days timetable
+        key = f'{group.lower()}_all'
+        if r.exists(key):
+            messages = r.get(key).decode('utf-8').split('|||')
+            logging.info("Got timetable %s from cache" % (key))
+            for message in messages:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id, text=message)
+            return
         timetable_dict = scraper.get_timetables_dict()
-    except ValueError as e:
+        messages = compose_timetables(timetable_dict)
+        for message in messages:
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text=message)
+        r.set(key, '|||'.join(messages))
+        logging.info("Saved timetable %s to cache" % (key))
+    except ValueError:
+        logging.info("No timetable found for %s" % (group))
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=_(f'No timetable found for {group}. Try again'))
         return
-    if day:
-        message = compose_timetable(timetable_dict, day)
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text=message)
+    except Exception as e:
+        logging.error(e)
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_('Something went wrong. Try again'))
         return
-
-    messages = compose_timetables(timetable_dict)
-    for message in messages:
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text=message)
 
 
 async def teacher_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    teacher = context.args[0]
+    if len(context.args) == 0:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_('Enter teacher name after command /teacher'))
+        return
+    day = None
+    if len(context.args) == 1:
+        teacher = context.args[0]
+    elif len(context.args) >= 2:
+        teacher = context.args[0]
+        day = context.args[1]
+        # TODO: better day parsing
+        if day not in DAYS:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=_('Incorrect day name. Try again'))
+            return
+        logging.info("Entered day: %s" % (day))
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text=_('Too many arguments'))
+        return
     logging.info("Entered teacher: %s" % (teacher))
+    user = users_db.find_one({'user_id': update.effective_chat.id})
+    scraper = TimetableScraper(academic_year=ACADEMIC_YEAR,
+                               headless=True,
+                               teacher=teacher,
+                               semester=user['semester'])
+    try:
+        # If day is specified, get timetable for this day
+        if day:
+            key = f'{teacher.lower()}_{day.lower()}'
+            if r.exists(key):
+                message = r.get(key).decode('utf-8')
+                logging.info("Got timetable %s from cache" % (key))
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id, text=message)
+                return
+            timetable_dict = scraper.get_timetables_dict()
+            message = compose_timetable(timetable_dict, day)
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text=message)
+            r.set(key, message)
+            logging.info("Saved timetable %s to cache" % (key))
+            return
+        # If day is not specified, get all timetables
+        key = f'{teacher.lower()}_all'
+        if r.exists(key):
+            messages = r.get(key).decode('utf-8').split('|||')
+            logging.info("Got timetable %s from cache" % (key))
+            for message in messages:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id, text=message)
+            return
+        messages = compose_timetables(timetable_dict)
+        for message in messages:
+            await context.bot.send_message(chat_id=update.effective_chat.id,
+                                           text=message)
+        r.set(key, '|||'.join(messages))
+        logging.info("Saved timetable %s to cache" % (key))
+    except ValueError:
+        logging.info("No timetable found for %s" % (teacher))
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_(f'No timetable found for {teacher}. Try again'))
+        return
+    except Exception as e:
+        logging.error(e)
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_('Something went wrong. Try again'))
+        return
 
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -120,8 +225,8 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '/start - Start the bot',
         '/help - Show this help message',
         '/semester - Choose semester',
-        '/group <group> <day>- Enter group',
-        '/teacher <teacher> <day>- Enter teacher',
+        '/group <group> <day>- Get timetable per group',
+        '/teacher <teacher> <day>- Get timetable per teacher',
     ]
     await context.bot.send_message(chat_id=update.effective_chat.id,
                                    text=_('\n'.join(command_list)))
