@@ -1,6 +1,6 @@
 services:
 #
-  -type: pserv
+  -type: web
   -name: bot
   -env: docker
   -envVars:
