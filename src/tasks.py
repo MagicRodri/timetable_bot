@@ -54,25 +54,22 @@ def clear_redis_cache() -> None:
     redis.flushdb()
 
 
-@app.task
-def add(x, y):
-    return x + y
+# @app.task
+# def add(x, y):
+#     return x + y
 
 
 @app.on_after_configure.connect
 def run_periodic_tasks(sender, *args, **kwargs):
-    sender.add_periodic_task(schedules.crontab(minute='*/1'),
-                             add.s(2, 2),
-                             name='add every 1')
-    # sender.add_periodic_task(schedules.crontab(hour='*/2'),
-    #                          update_group_collection.s(),
-    #                          name='update group collection')
-    # sender.add_periodic_task(schedules.crontab(hour='*/2'),
-    #                          update_teacher_collection.s(),
-    #                          name='update teacher collection')
-    # sender.add_periodic_task(schedules.crontab(hour='*/2'),
-    #                          clear_redis_cache.s(),
-    #                          name='clear redis cache')
+    sender.add_periodic_task(schedules.crontab(hour='*/6'),
+                             update_group_collection.s(),
+                             name='update group collection')
+    sender.add_periodic_task(schedules.crontab(hour='*/6'),
+                             update_teacher_collection.s(),
+                             name='update teacher collection')
+    sender.add_periodic_task(schedules.crontab(hour='*/6'),
+                             clear_redis_cache.s(),
+                             name='clear redis cache')
 
 
 if __name__ == '__main__':
