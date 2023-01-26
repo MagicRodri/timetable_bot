@@ -55,7 +55,9 @@ class TimetableScraper:
                 options.add_argument("--headless")
             options.add_argument("--no-sandbox")
             options.add_argument(f'user-agent={get_user_agent()}')
-            self.driver = webdriver.Chrome(options=options)
+            service = webdriver.chrome.service.Service(
+                executable_path="chromedriver")
+            self.driver = webdriver.Chrome(service=service, options=options)
         return self.driver
 
     def _submit_form(self) -> None:

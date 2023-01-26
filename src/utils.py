@@ -12,6 +12,8 @@ def compose_timetable(timetable_dict: dict, day: str) -> str:
         for key, value in timetable_cell.items():
             message.append(f"\t{key}: {value}")
         message.append("\n")
+    if len(message) == 1:
+        return f"{day}: Нет пар "
     return "\n".join(message)
 
 

@@ -20,3 +20,6 @@ MONGO_DB_NAME = os.getenv('MONGO_DB_NAME')
 REDIS_HOST = os.getenv('REDIS_HOST')
 REDIS_PORT = os.getenv('REDIS_PORT')
 REDIS_PASSWORD = os.getenv('REDIS_PASSWORD')
+
+# Celery
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
