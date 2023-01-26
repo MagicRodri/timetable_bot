@@ -15,6 +15,26 @@ def get_users_collection() -> pymongo.collection.Collection:
     return db.users
 
 
+def get_groups_collection() -> pymongo.collection.Collection:
+    db = get_db()
+    groups = db.groups
+    if 'name_text' not in groups.index_information():
+        groups.create_index([('name', 'text')],
+                            unique=False,
+                            default_language='russian')
+    return groups
+
+
+def get_teachers_collection() -> pymongo.collection.Collection:
+    db = get_db()
+    teachers = db.teachers
+    if 'name_text' not in teachers.index_information():
+        teachers.create_index([('name', 'text')],
+                              unique=False,
+                              default_language='russian')
+    return teachers
+
+
 def get_redis_connection() -> redis.Redis:
     return redis.Redis(host=config.REDIS_HOST,
                        port=config.REDIS_PORT,
@@ -27,3 +47,7 @@ if __name__ == '__main__':
     r = get_redis_connection()
     r.set('test', 'test')
     print(r.exists('test'))
+    groups_db = get_groups_collection()
+    result = groups_db.find({'$text': {'$search': 'ГМУ'}})
+    for i in result:
+        print(i)

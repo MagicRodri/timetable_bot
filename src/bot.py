@@ -3,6 +3,7 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+import config
 from db import get_redis_connection, get_users_collection
 from timetable_scraper import TimetableScraper
 from utils import compose_timetable, compose_timetables
@@ -12,7 +13,7 @@ def _(text: str):
     return text
 
 
-ACADEMIC_YEAR = "2022/2023"
+ACADEMIC_YEAR = config.ACADEMIC_YEAR
 DAYS = {
     _("Понедельник"),
     _("Вторник"),

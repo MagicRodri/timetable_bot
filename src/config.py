@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
+# GENERAL
+ACADEMIC_YEAR = "2022/2023"
+
 # Telegram
 TG_TOKEN = os.getenv('TG_TOKEN')
 
