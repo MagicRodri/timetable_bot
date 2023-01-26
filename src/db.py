@@ -48,6 +48,6 @@ if __name__ == '__main__':
     r.set('test', 'test')
     print(r.exists('test'))
     groups_db = get_groups_collection()
-    result = groups_db.find({'$text': {'$search': 'ГМУ'}})
+    result = groups_db.find({'$text': {'$search': 'ГМУ-1'}})
     for i in result:
         print(i)
