@@ -8,6 +8,7 @@ from db import (
     get_groups_collection,
     get_redis_connection,
     get_teachers_collection,
+    get_timetables_collection,
     get_users_collection,
 )
 from timetable_scraper import TimetableScraper
@@ -30,6 +31,7 @@ DAYS = {
 users_db = get_users_collection()
 groups_db = get_groups_collection()
 teachers_db = get_teachers_collection()
+timetables_db = get_timetables_collection()
 r = get_redis_connection()
 
 
@@ -205,12 +207,11 @@ async def day_input_callback(update: Update,
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id, text=message)
                 return
-            scraper = TimetableScraper(academic_year=ACADEMIC_YEAR,
-                                       headless=True,
-                                       semester=semester,
-                                       **user)
-            timetable_dict = scraper.get_timetables_dict()
-            message = compose_timetable(timetable_dict, day)
+            timetable_doc = timetables_db.find_one({
+                'semester': semester,
+                k: value
+            })
+            message = compose_timetable(timetable_doc['timetable'], day)
             await context.bot.send_message(chat_id=update.effective_chat.id,
                                            text=message)
             r.set(key, message)

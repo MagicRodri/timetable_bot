@@ -35,6 +35,11 @@ def get_teachers_collection() -> pymongo.collection.Collection:
     return teachers
 
 
+def get_timetables_collection() -> pymongo.collection.Collection:
+    db = get_db()
+    return db.timetables
+
+
 def get_redis_connection() -> redis.Redis:
     return redis.Redis(host=config.REDIS_HOST,
                        port=config.REDIS_PORT,

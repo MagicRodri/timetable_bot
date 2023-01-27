@@ -1,4 +1,5 @@
 import logging
+import time
 from dataclasses import dataclass
 
 from fake_useragent import UserAgent
@@ -58,6 +59,9 @@ class TimetableScraper:
             self.driver = webdriver.Chrome(options=options)
         return self.driver
 
+    def close(self) -> None:
+        self.driver.quit()
+
     def _submit_form(self) -> None:
         form = self.driver.find_element(By.TAG_NAME, "form")
         form.submit()
@@ -114,11 +118,7 @@ class TimetableScraper:
     def html_object(self) -> HTML:
         return HTML(html=self.driver.page_source)
 
-    def get_timetables_dict(self) -> dict:
-        self.select_semester()
-        self.select_timetable_type()
-        # self._submit_form()
-        html = self.html_object()
+    def _scrape_timetable(self, html: HTML) -> dict:
         timetable_table = html.find("table", first=True)
         if not timetable_table:
             raise ValueError("No timetable found.")
@@ -145,6 +145,13 @@ class TimetableScraper:
                     timetables_dict[day].append(timetable)
         return timetables_dict
 
+    def get_timetables_dict(self) -> dict:
+        self.select_semester()
+        self.select_timetable_type()
+        # self._submit_form()
+        html = self.html_object()
+        return self._scrape_timetable(html)
+
     def get_list_of(self, *, group=False, teacher=False) -> list:
         if group and teacher:
             raise ValueError("Only one of group or teacher can be specified.")
@@ -162,3 +169,37 @@ class TimetableScraper:
         for option in select.find_elements(By.TAG_NAME, "option"):
             the_list.append((option.get_attribute('value'), option.text))
         return the_list
+
+    def scrape_all(self) -> list:
+        data = []
+        self.select_semester()
+        timetable_value = timetable_types_value["group"]
+        select_name = timetable_select_names["group"]
+        for value in ['group', 'teacher']:
+            timetable_value = timetable_types_value[value]
+            select_name = timetable_select_names[value]
+            select = self._get_select(timetable_value, select_name)
+            options = select.find_elements(By.TAG_NAME, "option")
+            i = 0
+            while i < len(options):
+                options[i].click()
+                select = self._get_select(timetable_value, select_name)
+                options = select.find_elements(By.TAG_NAME, "option")
+                html = self.html_object()
+                data.append({
+                    value: options[i].text,
+                    'timetable': self._scrape_timetable(html)
+                })
+                i += 1
+        self.close()
+        return data
+
+
+if __name__ == "__main__":
+    scraper = TimetableScraper(academic_year='2022/2023',
+                               semester=2,
+                               group='СУЛА-209С',
+                               headless=True)
+    # print(scraper.get_list_of(group=True))
+    # print(scraper.get_timetables_dict())
+    print(scraper.scrape_all())

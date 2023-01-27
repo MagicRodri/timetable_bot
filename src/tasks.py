@@ -1,7 +1,12 @@
 from celery import Celery, schedules
 
 import config
-from db import get_groups_collection, get_redis_connection, get_teachers_collection
+from db import (
+    get_groups_collection,
+    get_redis_connection,
+    get_teachers_collection,
+    get_timetables_collection,
+)
 from timetable_scraper import TimetableScraper
 
 app = Celery('tasks',
@@ -48,6 +53,21 @@ def update_teacher_collection() -> None:
 
 
 @app.task
+def update_timetables_collection() -> None:
+    """Updates the timetables collection in the database"""
+    scraper = TimetableScraper(semester=2, academic_year=config.ACADEMIC_YEAR)
+    data = scraper.scrape_all()
+    timetables_db = get_timetables_collection()
+    for item in data:
+        timetable = item.pop('timetable')
+        timetables_db.update_one({
+            **item,
+        }, {'$set': {
+            'timetable': timetable
+        }}, True)
+
+
+@app.task
 def clear_redis_cache() -> None:
     """Clears the redis cache"""
     redis = get_redis_connection()
@@ -61,6 +81,9 @@ def clear_redis_cache() -> None:
 
 @app.on_after_configure.connect
 def run_periodic_tasks(sender, *args, **kwargs):
+    sender.add_periodic_task(schedules.crontab(hour='*/12'),
+                             update_timetables_collection.s(),
+                             name='update timetables collection')
     sender.add_periodic_task(schedules.crontab(hour='*/6'),
                              update_group_collection.s(),
                              name='update group collection')
@@ -73,6 +96,7 @@ def run_periodic_tasks(sender, *args, **kwargs):
 
 
 if __name__ == '__main__':
-    update_group_collection()
-    update_teacher_collection()
-    clear_redis_cache()
+    # update_group_collection()
+    # update_teacher_collection()
+    # clear_redis_cache()
+    update_timetables_collection()
