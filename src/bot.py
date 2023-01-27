@@ -106,6 +106,9 @@ async def group_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         group = result[0]['name']
         update_user(update.effective_chat.id, group)
+        await context.bot.send_message(chat_id=update.effective_chat.id,
+                                       text=_('Group successfully set to %s' %
+                                              (group)))
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id,
                                        text=_('Too many arguments'))
@@ -120,7 +123,8 @@ async def group_input_callback(update: Update,
         update_user(update.effective_chat.id, group)
         logging.info("Entered group: %s" % (group))
         await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text=_('Group successfully set'))
+                                       text=_('Group successfully set to %s' %
+                                              (group)))
 
 
 async def teacher_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -152,8 +156,9 @@ async def teacher_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         teacher = result[0]['name']
         update_user(update.effective_chat.id, teacher=teacher)
         logging.info("Entered teacher: %s" % (teacher))
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text=_('Teacher successfully set'))
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_('Teacher successfully set to %s' % (teacher)))
         return
 
 
@@ -165,8 +170,9 @@ async def teacher_input_callback(update: Update,
         teacher = query.data
         update_user(update.effective_chat.id, teacher=teacher)
         logging.info("Entered teacher: %s" % (teacher))
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text=_('Teacher successfully set'))
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_('Teacher successfully set to %s' % (teacher)))
 
 
 async def day_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -192,7 +198,7 @@ async def day_input_callback(update: Update,
             user.pop('user_id')
             semester = user.pop('semester')
             k, value = list(user.items())[0]
-            key = f'{value.lower()}_{semester}_{day.lower()}'
+            key = f'{"".join(value.lower().split())}_{semester}_{day.lower()}'
             if r.exists(key):
                 message = r.get(key).decode('utf-8')
                 logging.info("Got timetable %s from cache" % (key))
