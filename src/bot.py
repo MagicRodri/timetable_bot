@@ -1,7 +1,9 @@
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import MessageLimit
 from telegram.ext import ContextTypes
+from translate import Translator
 
 import config
 from db import (
@@ -11,12 +13,13 @@ from db import (
     get_timetables_collection,
     get_users_collection,
 )
-from timetable_scraper import TimetableScraper
 from utils import compose_timetable, update_user
 
+translator = Translator(to_lang="en")
 
-def _(text: str):
-    return text
+
+def _(text):
+    return translator.translate(text)
 
 
 ACADEMIC_YEAR = config.ACADEMIC_YEAR
@@ -35,19 +38,36 @@ timetables_db = get_timetables_collection()
 r = get_redis_connection()
 
 
+def insert_or_update_user(update: Update):
+    user_id = update.effective_chat.id
+    user = users_db.find_one({'user_id': user_id})
+    username = update.effective_chat.username
+    users_db.update_one({
+        'user_id': user_id,
+    }, {'$set': {
+        'username': username,
+        'semester': user['semester'],
+    }},
+                        upsert=True)
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info("User %s started the bot" % (update.effective_chat.id))
     start_message = _("""
     Hello! I'm a bot that can show you your timetable.
     To get started, enter your group name after the command /group.
-    For example: /group СУЛА-308С 
+    For example /group СУЛА-308С 
     For more information, use the /help command.
     """)
     user_id = update.effective_chat.id
+    username = update.effective_chat.username
     if users_db.count_documents({'user_id': user_id}) == 0:
-        users_db.insert_one({'user_id': user_id, 'semester': 2})
-    await context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text=start_message)
+        users_db.insert_one({
+            'user_id': user_id,
+            'username': username,
+            'semester': 2
+        })
+    await context.bot.send_message(chat_id=user_id, text=start_message)
 
 
 async def semester_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,6 +85,7 @@ async def semester_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def semester_choice_callback(update: Update,
                                    context: ContextTypes.DEFAULT_TYPE):
+    insert_or_update_user(update)
     query = update.callback_query
     if query.message.text == _("Choose semester:"):
         await query.answer()
@@ -80,6 +101,7 @@ async def semester_choice_callback(update: Update,
 
 async def group_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Get group name from user and reply with timetable"""
+    insert_or_update_user(update)
     if len(context.args) == 0:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -130,6 +152,7 @@ async def group_input_callback(update: Update,
 
 
 async def teacher_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    insert_or_update_user(update)
     if len(context.args) == 0:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -178,6 +201,7 @@ async def teacher_input_callback(update: Update,
 
 
 async def day_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    insert_or_update_user(update)
     keyboad = []
     for en_day, ru_day in DAYS.items():
         keyboad.append([InlineKeyboardButton(en_day, callback_data=ru_day)])
@@ -198,6 +222,7 @@ async def day_input_callback(update: Update,
             user = users_db.find_one({'user_id': update.effective_chat.id})
             user.pop('_id')
             user.pop('user_id')
+            user.pop('username')
             semester = user.pop('semester')
             k, value = list(user.items())[0]
             key = f'{"".join(value.lower().split())}_{semester}_{day.lower()}'
@@ -212,8 +237,17 @@ async def day_input_callback(update: Update,
                 k: value
             })
             message = compose_timetable(timetable_doc['timetable'], day)
-            await context.bot.send_message(chat_id=update.effective_chat.id,
-                                           text=message)
+            if len(message) > MessageLimit.MAX_TEXT_LENGTH:
+                chunks = [
+                    message[i:i + 4096] for i in range(
+                        0, len(message), MessageLimit.MAX_TEXT_LENGTH)
+                ]
+                for chunk in chunks:
+                    await context.bot.send_message(
+                        chat_id=update.effective_chat.id, text=chunk)
+            else:
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id, text=message)
             r.set(key, message)
             logging.info("Saved timetable %s to cache" % (key))
             return
@@ -223,7 +257,7 @@ async def day_input_callback(update: Update,
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=
-                _('No group or teacher found. Refer to /help to set group or teacher'
+                _('You must set group or teacher before choosing day. Refer to /help'
                   ))
             return
         except ValueError:
@@ -240,14 +274,55 @@ async def day_input_callback(update: Update,
             return
 
 
+async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Translate the bot's messages to the user's language.
+    """
+
+    language_keyboad = [
+        [InlineKeyboardButton(_("English"), callback_data="en")],
+        [InlineKeyboardButton(_("Russian"), callback_data="ru")],
+        [InlineKeyboardButton(_("French"), callback_data="fr")],
+    ]
+
+    language_keyboad_markup = InlineKeyboardMarkup(language_keyboad)
+
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=_("Choose your language:"),
+        reply_markup=language_keyboad_markup,
+    )
+
+
+async def language_choice_callback(update: Update,
+                                   context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle the user's choice of language.
+    """
+    global translator
+    query = update.callback_query
+    if query.message.text == _("Choose your language:"):
+        await query.answer()
+        language = query.data
+        if len(language) != 2:
+            return
+        translator = Translator(to_lang=language)
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=_("Your language is set!"),
+        )
+
+
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    insert_or_update_user(update)
     command_list = [
         '/start - Start the bot',
-        '/help - Show this help message',
         '/semester - Choose semester',
-        '/group <group> - Enter group',
-        '/teacher <teacher> - Enter teacher\'s name',
+        '/group - Enter group name after command e.g. /group СУЛА-2',
+        '/teacher - Enter teacher\'s name after command e.g. /teacher Иванов',
         '/day - Get timetable for a day',
+        '/language - Choose language (still experimental). For a smooth experience, choose English',
+        '/help - Show this message',
     ]
     await context.bot.send_message(chat_id=update.effective_chat.id,
                                    text=_('\n'.join(command_list)))

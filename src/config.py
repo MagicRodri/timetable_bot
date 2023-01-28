@@ -8,6 +8,7 @@ load_dotenv(BASE_DIR / '.env')
 
 # GENERAL
 ACADEMIC_YEAR = "2022/2023"
+DEBUG = False
 
 # Telegram
 TG_TOKEN = os.getenv('TG_TOKEN')
