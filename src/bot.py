@@ -304,6 +304,7 @@ async def language_choice_callback(update: Update,
         if len(language) != 2:
             return
         translator = Translator(to_lang=language)
+        logging.info("Language set to: %s" % (language))
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=_("Your language is set!"),
