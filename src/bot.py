@@ -232,10 +232,7 @@ async def day_input_callback(update: Update,
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id, text=message)
                 return
-            timetable_doc = timetables_db.find_one({
-                'semester': semester,
-                k: value
-            })
+            timetable_doc = timetables_db.find_one({k: value})
             message = compose_timetable(timetable_doc['timetable'], day)
             if len(message) > MessageLimit.MAX_TEXT_LENGTH:
                 chunks = [
@@ -266,12 +263,12 @@ async def day_input_callback(update: Update,
                 chat_id=update.effective_chat.id,
                 text=_(f'No timetable found for {value}. Try again'))
             return
-        except Exception as e:
-            logging.error(e)
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=_('Something went wrong. Try again'))
-            return
+        # except Exception as e:
+        #     logging.error(e)
+        #     await context.bot.send_message(
+        #         chat_id=update.effective_chat.id,
+        #         text=_('Something went wrong. Try again'))
+        #     return
 
 
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):

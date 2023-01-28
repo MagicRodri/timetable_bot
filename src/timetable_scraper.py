@@ -1,5 +1,4 @@
 import logging
-import time
 from dataclasses import dataclass
 
 from fake_useragent import UserAgent
@@ -8,6 +7,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
+
+from config import BROWSERSTACK_ACCESS_KEY, BROWSERSTACK_USERNAME, DEBUG
 
 
 def get_user_agent():
@@ -56,7 +57,25 @@ class TimetableScraper:
                 options.add_argument("--headless")
             options.add_argument("--no-sandbox")
             options.add_argument(f'user-agent={get_user_agent()}')
-            self.driver = webdriver.Chrome(options=options)
+            if DEBUG:
+                driver = webdriver.Chrome(options=options)
+            else:
+                URL = f"https://{BROWSERSTACK_USERNAME}:{BROWSERSTACK_ACCESS_KEY}@hub.browserstack.com/wd/hub"
+                desired_cap = {
+                    "os": "windows",
+                    "osVersion": "10",
+                    "buildName": "timetable-build-1",
+                    "sessionName": "ISU timetable",
+                    "local": "false",
+                    "userName": BROWSERSTACK_USERNAME,
+                    "accessKey": BROWSERSTACK_ACCESS_KEY
+                }
+                desired_cap["source"] = "python:sample-main:v1.0"
+                options.set_capability('bstack:options', desired_cap)
+                driver = webdriver.Remote(command_executor=URL,
+                                          options=options)
+
+            self.driver = driver
         return self.driver
 
     def close(self) -> None:
@@ -137,12 +156,11 @@ class TimetableScraper:
                 day = cells[0].text
                 timetables_dict[day] = []
                 # logging.info(f"Day: {day}")
-            else:
-                if day is not None:
-                    timetable = {}
-                    for header, cell in zip(headers[1:], cells[1:]):
-                        timetable[header] = cell.text
-                    timetables_dict[day].append(timetable)
+            if day is not None:
+                timetable = {}
+                for header, cell in zip(headers[1:], cells[1:]):
+                    timetable[header] = cell.text
+                timetables_dict[day].append(timetable)
         return timetables_dict
 
     def get_timetables_dict(self) -> dict:
@@ -150,6 +168,7 @@ class TimetableScraper:
         self.select_timetable_type()
         # self._submit_form()
         html = self.html_object()
+        self.close()
         return self._scrape_timetable(html)
 
     def get_list_of(self, *, group=False, teacher=False) -> list:
@@ -168,6 +187,7 @@ class TimetableScraper:
         the_list = []
         for option in select.find_elements(By.TAG_NAME, "option"):
             the_list.append((option.get_attribute('value'), option.text))
+        self.close()
         return the_list
 
     def scrape_all(self) -> list:

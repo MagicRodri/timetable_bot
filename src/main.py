@@ -29,7 +29,7 @@ from config import DEBUG, TG_TOKEN
 def main():
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     log_date_format = '%Y-%m-%d %H:%M:%S'
-    level = logging.DEBUG if DEBUG else logging.INFO
+    level = logging.INFO
     log_file = 'bot.log' if not DEBUG else None
     logging.basicConfig(format=log_format,
                         level=level,

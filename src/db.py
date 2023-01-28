@@ -53,6 +53,9 @@ if __name__ == '__main__':
     r.set('test', 'test')
     print(r.exists('test'))
     groups_db = get_groups_collection()
-    result = groups_db.find({'$text': {'$search': 'ГМУ-1'}})
+    result = groups_db.find({'$text': {'$search': 'СУЛА-308С'}})
     for i in result:
         print(i)
+    timetables_db = get_timetables_collection()
+    timetable_doc = timetables_db.find_one({"group": "СУЛА-308С"})
+    print(timetable_doc)
