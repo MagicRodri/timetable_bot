@@ -16,20 +16,20 @@ services:
     - key: REDIS_PASSWORD
       sync: false
 
-  - type: worker
-    name: celery_worker
-    env: docker
-    dockerCommand: cd src && celery -A tasks worker -B -l INFO
-    envVars:
-    - key: MONGO_URI
-      sync: false
-    - key: MONGO_DB_NAME
-      value: timetable_bot
-    - key: REDIS_HOST
-      value: redis-19363.c293.eu-central-1-1.ec2.cloud.redislabs.com
-    - key: REDIS_PORT
-      value: 19363
-    - key: REDIS_PASSWORD
-      sync: false
-    - key: CELERY_BROKER_URL
-      sync: false
+  # - type: worker
+  #   name: celery_worker
+  #   env: docker
+  #   dockerCommand: cd src && celery -A tasks worker -B -l INFO
+  #   envVars:
+  #   - key: MONGO_URI
+  #     sync: false
+  #   - key: MONGO_DB_NAME
+  #     value: timetable_bot
+  #   - key: REDIS_HOST
+  #     value: redis-19363.c293.eu-central-1-1.ec2.cloud.redislabs.com
+  #   - key: REDIS_PORT
+  #     value: 19363
+  #   - key: REDIS_PASSWORD
+  #     sync: false
+  #   - key: CELERY_BROKER_URL
+  #     sync: false
