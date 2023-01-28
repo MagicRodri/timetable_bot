@@ -1,7 +1,7 @@
 services:
   - type: web
     name: bot
-    env: docker
+    env: python
     envVars:
     - key: TG_TOKEN
       sync: false
