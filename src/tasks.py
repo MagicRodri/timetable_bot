@@ -87,10 +87,10 @@ def run_periodic_tasks(sender, *args, **kwargs):
     sender.add_periodic_task(schedules.crontab(hour='*/6'),
                              update_group_collection.s(),
                              name='update group collection')
-    sender.add_periodic_task(schedules.crontab(hour='*/6'),
+    sender.add_periodic_task(schedules.crontab(hour='*/10'),
                              update_teacher_collection.s(),
                              name='update teacher collection')
-    sender.add_periodic_task(schedules.crontab(hour='*/6'),
+    sender.add_periodic_task(schedules.crontab(hour='*/1'),
                              clear_redis_cache.s(),
                              name='clear redis cache')
 
