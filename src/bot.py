@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -13,6 +14,7 @@ from db import (
     get_timetables_collection,
     get_users_collection,
 )
+from timetable_scraper import TimetableScraper2
 from utils import compose_timetable, update_user
 
 translator = Translator(to_lang="en")
@@ -224,7 +226,8 @@ async def day_input_callback(update: Update,
             user.pop('user_id')
             user.pop('username')
             semester = user.pop('semester')
-            k, value = list(user.items())[0]
+            k, value = list(user.items())[
+                0]  # can raise IndexError if user has no group or teacher
             key = f'{"".join(value.lower().split())}_{semester}_{day.lower()}'
             if r.exists(key):
                 message = r.get(key).decode('utf-8')
@@ -233,7 +236,12 @@ async def day_input_callback(update: Update,
                     chat_id=update.effective_chat.id, text=message)
                 return
             timetable_doc = timetables_db.find_one({k: value})
+            last_updated = timetable_doc['last_updated']
             message = compose_timetable(timetable_doc['timetable'], day)
+            if datetime.datetime.now() - last_updated > datetime.timedelta(
+                    days=1):
+                logging.info("Timetable is outdated")
+                # scraper = TimetableScraper2(semester=semester) # TODO: scrape new timetable
             if len(message) > MessageLimit.MAX_TEXT_LENGTH:
                 chunks = [
                     message[i:i + 4096] for i in range(

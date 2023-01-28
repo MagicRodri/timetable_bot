@@ -1,6 +1,8 @@
 import logging
 from dataclasses import dataclass
+from typing import Tuple
 
+import requests
 from fake_useragent import UserAgent
 from requests_html import HTML
 from selenium import webdriver
@@ -215,6 +217,116 @@ class TimetableScraper:
         return data
 
 
+class TimetableScraper2:
+    SEMESTER_IDS = {
+        1: 221,
+        2: 222,
+    }
+
+    WHAT_SHOW_IDS = {
+        'group': 1,
+        'teacher': 2,
+        'room': 3,
+    }
+
+    TIMETABLE_SELECT_NAME = {
+        "group": "student_group_id",
+        "teacher": "teacher",
+    }
+
+    def __init__(self, *, semester):
+        self.semester = semester
+
+        semester_id = self.SEMESTER_IDS[semester]
+        self.base_url = f"https://isu.ugatu.su/api/new_schedule_api/?schedule_semestr_id={semester_id}"
+
+    def _get_timetable_source(self, *, group_id=None, teacher_id=None):
+        if group_id:
+            what_show = self.WHAT_SHOW_IDS["group"]
+            select_query_name = self.TIMETABLE_SELECT_NAME["group"]
+            select_query_value = group_id
+        elif teacher_id:
+            what_show = self.WHAT_SHOW_IDS["teacher"]
+            select_query_name = self.TIMETABLE_SELECT_NAME["teacher"]
+            select_query_value = teacher_id
+        else:
+            raise ValueError(
+                "One of group_id or teacher_id must be specified.")
+        url = self.base_url + "&WhatShow={what_show}&{select_query_name}={select_query_value}".format(
+            what_show=what_show,
+            select_query_name=select_query_name,
+            select_query_value=select_query_value)
+        return requests.get(url).text
+
+    def _scrape_timetable(self, html: HTML) -> dict:
+        timetable_table = html.find("table", first=True)
+        if not timetable_table:
+            raise ValueError("No timetable found.")
+
+        table_header = timetable_table.find("thead", first=True)
+        headers = []
+        for td in table_header.find("td"):
+            headers.append(td.text)
+        # logging.info(f"Headers: {headers}")
+        timetables_dict = {}
+        table_body = timetable_table.find("tbody", first=True)
+        day = None
+        for row in table_body.find("tr"):
+            cells = row.find("td")
+            if cells[0].text != "" and cells[0].text not in timetables_dict:
+                day = cells[0].text
+                timetables_dict[day] = []
+                # logging.info(f"Day: {day}")
+            if day is not None:
+                timetable = {}
+                for header, cell in zip(headers[1:], cells[1:]):
+                    timetable[header] = cell.text
+                timetables_dict[day].append(timetable)
+        return timetables_dict
+
+    def get_timetable_dict(self,
+                           *,
+                           group: Tuple[int, str] = None,
+                           teacher: Tuple[int, str] = None) -> dict:
+        if group and teacher:
+            raise ValueError(
+                "Only one of group_id or teacher_id can be specified.")
+        elif not group and not teacher:
+            raise ValueError(
+                "One of group_id or teacher_id must be specified.")
+        if group:
+            html = HTML(html=self._get_timetable_source(group_id=group[0]))
+            return {
+                'group': group[1],
+                'timetable': self._scrape_timetable(html)
+            }
+        elif teacher:
+            html = HTML(html=self._get_timetable_source(teacher_id=teacher[0]))
+            return {
+                'teacher': teacher[1],
+                'timetable': self._scrape_timetable(html)
+            }
+
+    def get_list_of(self, *, group=False, teacher=False) -> list:
+        if group and teacher:
+            raise ValueError("Only one of group or teacher can be specified.")
+        elif not group and not teacher:
+            raise ValueError("One of group or teacher must be specified.")
+        if group:
+            url = self.base_url + "&WhatShow={what_show}".format(
+                what_show=self.WHAT_SHOW_IDS["group"])
+            select_name = self.TIMETABLE_SELECT_NAME["group"]
+        elif teacher:
+            url = self.base_url + "&WhatShow={what_show}".format(
+                what_show=self.WHAT_SHOW_IDS["teacher"])
+            select_name = self.TIMETABLE_SELECT_NAME["teacher"]
+        html = HTML(html=requests.get(url).text)
+        select = html.find(f"select[name='{select_name}']", first=True)
+        options = select.find("option")
+        return [(int(option.attrs["value"]), option.text)
+                for option in options]
+
+
 if __name__ == "__main__":
     scraper = TimetableScraper(academic_year='2022/2023',
                                semester=2,
@@ -222,4 +334,8 @@ if __name__ == "__main__":
                                headless=True)
     # print(scraper.get_list_of(group=True))
     # print(scraper.get_timetables_dict())
-    print(scraper.scrape_all())
+    # print(scraper.scrape_all())
+
+    scraper2 = TimetableScraper2(semester=2)
+    print(scraper2.get_timetable_dict(group=(1666, 'СУЛА-308С')))
+    print(scraper2.get_list_of(teacher=True))
