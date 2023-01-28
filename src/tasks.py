@@ -96,7 +96,7 @@ def run_periodic_tasks(sender, *args, **kwargs):
 
 
 if __name__ == '__main__':
-    # update_group_collection()
-    # update_teacher_collection()
-    # clear_redis_cache()
+    update_group_collection()
+    update_teacher_collection()
+    clear_redis_cache()
     update_timetables_collection()
