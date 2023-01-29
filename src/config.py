@@ -8,7 +8,7 @@ load_dotenv(BASE_DIR / '.env')
 
 # GENERAL
 ACADEMIC_YEAR = "2022/2023"
-DEBUG = False
+DEBUG = bool(int(os.getenv('DEBUG')))
 
 # Telegram
 TG_TOKEN = os.getenv('TG_TOKEN')
@@ -28,3 +28,6 @@ CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL')
 # Browserstack
 BROWSERSTACK_USERNAME = os.getenv('BROWSERSTACK_USERNAME')
 BROWSERSTACK_ACCESS_KEY = os.getenv('BROWSERSTACK_ACCESS_KEY')
+
+#Render
+URL = os.getenv('URL')

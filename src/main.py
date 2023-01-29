@@ -23,18 +23,23 @@ from bot import (
     teacher_input_callback,
     unknown,
 )
-from config import DEBUG, TG_TOKEN
+from config import DEBUG, TG_TOKEN, URL
 
 
 def main():
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     log_date_format = '%Y-%m-%d %H:%M:%S'
     level = logging.INFO
-    log_file = 'bot.log' if not DEBUG else None
-    logging.basicConfig(format=log_format,
-                        level=level,
-                        datefmt=log_date_format,
-                        filename=log_file)
+    if not DEBUG:
+        log_file = 'bot.log'
+        logging.basicConfig(format=log_format,
+                            level=level,
+                            datefmt=log_date_format,
+                            filename=log_file)
+    else:
+        logging.basicConfig(format=log_format,
+                            level=level,
+                            datefmt=log_date_format)
 
     app = ApplicationBuilder().token(TG_TOKEN).build()
 
@@ -74,7 +79,10 @@ def main():
     app.add_handler(help_handler)
     app.add_handler(unknown_handler)
 
-    app.run_polling()
+    if DEBUG:
+        app.run_polling()
+    else:
+        app.run_webhook(listen="0.0.0.0", webhook_url=URL)
 
 
 if __name__ == '__main__':
