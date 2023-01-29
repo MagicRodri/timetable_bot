@@ -23,7 +23,7 @@ from bot import (
     teacher_input_callback,
     unknown,
 )
-from config import DEBUG, TG_TOKEN, URL
+from config import DEBUG, PORT, TG_TOKEN, URL
 
 
 def main():
@@ -82,7 +82,7 @@ def main():
     if DEBUG:
         app.run_polling()
     else:
-        app.run_webhook(listen="0.0.0.0", webhook_url=URL)
+        app.run_webhook(listen="0.0.0.0", port=int(PORT), webhook_url=URL)
 
 
 if __name__ == '__main__':
