@@ -1,6 +1,12 @@
 from typing import List
 
-from db import get_users_collection
+from db import (
+    get_groups_collection,
+    get_teachers_collection,
+    get_timetables_collection,
+    get_users_collection,
+)
+from timetable_scraper import TimetableScraper2
 
 
 def compose_timetable(timetable_dict: dict, day: str) -> str:
@@ -55,3 +61,21 @@ async def send_message_by_chunks(bot, chat_id, message, chunk_size=4096):
     """Sends a message by chunks if it's too long"""
     for i in range(0, len(message), chunk_size):
         await bot.send_message(chat_id=chat_id, text=message[i:i + chunk_size])
+
+
+def scrape_new_timetable(query: tuple, semester: int) -> dict:
+    """Scrapes a new timetable"""
+    scraper = TimetableScraper2(semester=semester)
+    if query[0] == 'group':
+        groups_db = get_groups_collection()
+        group = groups_db.find_one({'name': query[1], 'semester': semester})
+        return scraper.get_timetable_dict(group=(group['value'],
+                                                 group['name']))
+    elif query[0] == 'teacher':
+        teachers_db = get_teachers_collection()
+        teacher = teachers_db.find_one({
+            'name': query[1],
+            'semester': semester
+        })
+        return scraper.get_timetable_dict(teacher=(teacher['value'],
+                                                   teacher['name']))

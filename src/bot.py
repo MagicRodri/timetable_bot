@@ -14,8 +14,12 @@ from db import (
     get_timetables_collection,
     get_users_collection,
 )
-from timetable_scraper import TimetableScraper2
-from utils import compose_timetable, send_message_by_chunks, update_user
+from utils import (
+    compose_timetable,
+    scrape_new_timetable,
+    send_message_by_chunks,
+    update_user,
+)
 
 translator = Translator(to_lang="en")
 
@@ -243,7 +247,10 @@ async def day_input_callback(update: Update,
             if datetime.datetime.now() - last_updated > datetime.timedelta(
                     hours=6):
                 logging.info("Timetable is outdated, scraping new one")
-                # scraper = TimetableScraper2(semester=semester) # TODO: scrape new timetable
+                timetable_dict = scrape_new_timetable((k, value),
+                                                      semester=semester)
+                message = compose_timetable(timetable_dict['timetable'], day)
+
             if len(message) > MessageLimit.MAX_TEXT_LENGTH:
                 await query.edit_message_text(text=_('Loading...'))
                 await send_message_by_chunks(context.bot,
@@ -266,7 +273,7 @@ async def day_input_callback(update: Update,
             logging.info("No timetable found for %s" % (value))
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=_(f'No timetable found for {value}. Try again'))
+                text=_(f"I didn't find any timetable for {value}. Try again"))
             return
         except Exception as e:
             logging.error(e)

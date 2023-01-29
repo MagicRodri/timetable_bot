@@ -111,16 +111,16 @@ def clear_redis_cache() -> None:
 
 @app.on_after_configure.connect
 def run_periodic_tasks(sender, *args, **kwargs):
-    sender.add_periodic_task(schedules.crontab(hour='*/6'),
+    sender.add_periodic_task(schedules.crontab(hour='*/5'),
                              update_timetables_collection.s(),
                              name='update timetables collection')
-    sender.add_periodic_task(schedules.crontab(hour='*/6'),
+    sender.add_periodic_task(schedules.crontab(hour='*/5'),
                              update_group_collection.s(),
                              name='update group collection')
-    sender.add_periodic_task(schedules.crontab(hour='*/6'),
+    sender.add_periodic_task(schedules.crontab(hour='*/5'),
                              update_teacher_collection.s(),
                              name='update teacher collection')
-    sender.add_periodic_task(schedules.crontab(hour='*/6'),
+    sender.add_periodic_task(schedules.crontab(hour='*/5'),
                              clear_redis_cache.s(),
                              name='clear redis cache')
 
