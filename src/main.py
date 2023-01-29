@@ -30,16 +30,10 @@ def main():
     log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     log_date_format = '%Y-%m-%d %H:%M:%S'
     level = logging.INFO
-    if not DEBUG:
-        log_file = 'bot.log'
-        logging.basicConfig(format=log_format,
-                            level=level,
-                            datefmt=log_date_format,
-                            filename=log_file)
-    else:
-        logging.basicConfig(format=log_format,
-                            level=level,
-                            datefmt=log_date_format)
+
+    logging.basicConfig(format=log_format,
+                        level=level,
+                        datefmt=log_date_format)
 
     app = ApplicationBuilder().token(TG_TOKEN).build()
 
