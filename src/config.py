@@ -12,6 +12,7 @@ DEBUG = bool(int(os.getenv('DEBUG')))
 
 # Telegram
 TG_TOKEN = os.getenv('TG_TOKEN')
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Database
 MONGO_URI = os.getenv('MONGO_URI')
