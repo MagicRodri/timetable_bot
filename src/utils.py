@@ -44,3 +44,14 @@ def update_user(user_id: int, group: str = None, teacher: str = None) -> None:
         **field
     },
                          upsert=True)
+
+
+async def send_message(bot, chat_id, message):
+    """Sends a message"""
+    await bot.send_message(chat_id=chat_id, text=message)
+
+
+async def send_message_by_chunks(bot, chat_id, message, chunk_size=4096):
+    """Sends a message by chunks if it's too long"""
+    for i in range(0, len(message), chunk_size):
+        await bot.send_message(chat_id=chat_id, text=message[i:i + chunk_size])

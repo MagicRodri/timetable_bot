@@ -15,7 +15,7 @@ from db import (
     get_users_collection,
 )
 from timetable_scraper import TimetableScraper2
-from utils import compose_timetable, update_user
+from utils import compose_timetable, send_message_by_chunks, update_user
 
 translator = Translator(to_lang="en")
 
@@ -96,8 +96,7 @@ async def semester_choice_callback(update: Update,
                             {'$set': {
                                 'semester': int(query.data)
                             }})
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text=_('Semester changed'))
+        await query.edit_message_text(text=_("Semester successfully set "))
     return
 
 
@@ -148,9 +147,8 @@ async def group_input_callback(update: Update,
         group = query.data
         update_user(update.effective_chat.id, group)
         logging.info("Entered group: %s" % (group))
-        await context.bot.send_message(chat_id=update.effective_chat.id,
-                                       text=_('Group successfully set to %s' %
-                                              (group)))
+        await query.edit_message_text(text=_('Group successfully set to %s' %
+                                             (group)))
 
 
 async def teacher_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -197,9 +195,8 @@ async def teacher_input_callback(update: Update,
         teacher = query.data
         update_user(update.effective_chat.id, teacher=teacher)
         logging.info("Entered teacher: %s" % (teacher))
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=_('Teacher successfully set to %s' % (teacher)))
+        await query.message.edit_text(text=_('Teacher successfully set to %s' %
+                                             (teacher)))
 
 
 async def day_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -232,27 +229,27 @@ async def day_input_callback(update: Update,
             if r.exists(key):
                 message = r.get(key).decode('utf-8')
                 logging.info("Got timetable %s from cache" % (key))
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id, text=message)
+                if len(message) > MessageLimit.MAX_TEXT_LENGTH:
+                    await query.edit_message_text(text=_('Loading...'))
+                    await send_message_by_chunks(context.bot,
+                                                 update.effective_chat.id,
+                                                 message)
+                else:
+                    await query.edit_message_text(text=message)
                 return
             timetable_doc = timetables_db.find_one({k: value})
             last_updated = timetable_doc['last_updated']
             message = compose_timetable(timetable_doc['timetable'], day)
             if datetime.datetime.now() - last_updated > datetime.timedelta(
-                    days=1):
-                logging.info("Timetable is outdated")
+                    hours=6):
+                logging.info("Timetable is outdated, scraping new one")
                 # scraper = TimetableScraper2(semester=semester) # TODO: scrape new timetable
             if len(message) > MessageLimit.MAX_TEXT_LENGTH:
-                chunks = [
-                    message[i:i + 4096] for i in range(
-                        0, len(message), MessageLimit.MAX_TEXT_LENGTH)
-                ]
-                for chunk in chunks:
-                    await context.bot.send_message(
-                        chat_id=update.effective_chat.id, text=chunk)
+                await query.edit_message_text(text=_('Loading...'))
+                await send_message_by_chunks(context.bot,
+                                             update.effective_chat.id, message)
             else:
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id, text=message)
+                await query.edit_message_text(text=message)
             r.set(key, message)
             logging.info("Saved timetable %s to cache" % (key))
             return
@@ -283,15 +280,12 @@ async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Translate the bot's messages to the user's language.
     """
-
     language_keyboad = [
         [InlineKeyboardButton(_("English"), callback_data="en")],
         [InlineKeyboardButton(_("Russian"), callback_data="ru")],
         [InlineKeyboardButton(_("French"), callback_data="fr")],
     ]
-
     language_keyboad_markup = InlineKeyboardMarkup(language_keyboad)
-
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=_("Choose your language:"),
@@ -313,10 +307,7 @@ async def language_choice_callback(update: Update,
             return
         translator = Translator(to_lang=language)
         logging.info("Language set to: %s" % (language))
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=_("Your language is set!"),
-        )
+        await query.message.edit_text(text=_("Language set "))
 
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -327,7 +318,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         '/group - Enter group name after command e.g. /group СУЛА-2',
         '/teacher - Enter teacher\'s name after command e.g. /teacher Иванов',
         '/day - Get timetable for a day',
-        '/language - Choose language (still experimental). For a smooth experience, choose English',
+        '/language - Choose language. For a smooth experience, choose English',
         '/help - Show this message',
     ]
     await context.bot.send_message(chat_id=update.effective_chat.id,

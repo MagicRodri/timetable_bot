@@ -2,8 +2,8 @@
 name: DB update
 on:
   push:
-    branches:
-      - main
+    # branches:
+    #   - main
   schedule:
     - cron: '0 */5 * * *' # every 5 hours
 
