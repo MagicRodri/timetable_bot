@@ -1,5 +1,5 @@
 import logging
-
+import datetime
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
@@ -22,6 +22,7 @@ from bot import (
     teacher_input,
     teacher_input_callback,
     unknown,
+    send_daily_timetable
 )
 from config import DEBUG, PORT, SECRET_KEY, TG_TOKEN, URL
 
@@ -72,10 +73,12 @@ def main():
     app.add_handler(language_callback_handler, group=4)
     app.add_handler(help_handler)
     app.add_handler(unknown_handler)
-
+    job_queue = app.job_queue
     if DEBUG:
+        job_queue.run_daily(send_daily_timetable,time=datetime.time(hour=11, minute=35, second=0))
         app.run_polling()
     else:
+        job_queue.run_daily(send_daily_timetable,time=datetime.time(hour=1, minute=30, second=0))
         app.run_webhook(listen="0.0.0.0",
                         port=int(PORT),
                         webhook_url=URL,

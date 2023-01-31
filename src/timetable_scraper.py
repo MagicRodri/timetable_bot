@@ -284,6 +284,14 @@ class TimetableScraper2:
                 timetables_dict[day].append(timetable)
         return timetables_dict
 
+    def scrape_ongoing_week(self) -> str:
+        html = HTML(html=requests.get(self.base_url).text)
+        selector = "form + div"
+        div = html.find(selector, first=True)
+        if not div:
+            raise ValueError("No ongoing week found.")
+        return div.text
+
     def get_timetable_dict(self,
                            *,
                            group: Tuple[int, str] = None,
@@ -328,14 +336,15 @@ class TimetableScraper2:
 
 
 if __name__ == "__main__":
-    scraper = TimetableScraper(academic_year='2022/2023',
-                               semester=2,
-                               group='СУЛА-209С',
-                               headless=True)
+    # scraper = TimetableScraper(academic_year='2022/2023',
+    #                            semester=2,
+    #                            group='СУЛА-209С',
+    #                            headless=True)
     # print(scraper.get_list_of(group=True))
     # print(scraper.get_timetables_dict())
     # print(scraper.scrape_all())
 
     scraper2 = TimetableScraper2(semester=2)
-    print(scraper2.get_timetable_dict(group=(1666, 'СУЛА-308С')))
-    print(scraper2.get_list_of(teacher=True))
+    # print(scraper2.get_timetable_dict(group=(1666, 'СУЛА-308С')))
+    # print(scraper2.get_list_of(teacher=True))
+    print(scraper2.scrape_ongoing_week())

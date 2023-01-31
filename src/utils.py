@@ -1,5 +1,8 @@
 from typing import List
-
+import pymongo
+import datetime
+import logging
+import redis
 from db import (
     get_groups_collection,
     get_teachers_collection,
@@ -8,6 +11,9 @@ from db import (
 )
 from timetable_scraper import TimetableScraper2
 
+def get_ongoing_week() -> str:
+    """Returns the number of the ongoing week"""
+    return TimetableScraper2(semester=2).scrape_ongoing_week()
 
 def compose_timetable(timetable_dict: dict, day: str) -> str:
     message = [day]
@@ -22,12 +28,37 @@ def compose_timetable(timetable_dict: dict, day: str) -> str:
         return f"{day}: Нет пар "
     return "\n".join(message)
 
-
 def compose_timetables(timetable_dict: dict) -> List[str]:
     messages = []
     for day in timetable_dict:
         messages.append(compose_timetable(timetable_dict, day))
     return messages
+
+def get_timetable(timetables_db:pymongo.collection.Collection,redis_cache:redis.Redis,user,day:str) ->str:
+    user.pop('_id')
+    user.pop('user_id')
+    user.pop('username')
+    semester = user.pop('semester')
+    k, value = list(user.items())[
+        0]  # can raise IndexError if user has no group or teacher
+    key = f'{"".join(value.lower().split())}_{semester}_{day.lower()}'
+    if redis_cache.exists(key):
+        message = redis_cache.get(key).decode('utf-8')
+        logging.info("Got timetable %s from cache" % (key))
+        return message
+    else:
+        timetable_doc = timetables_db.find_one({k: value})
+        last_updated = timetable_doc['last_updated']
+        message = compose_timetable(timetable_doc['timetable'], day)
+        if datetime.datetime.now() - last_updated > datetime.timedelta(
+                hours=6):
+            logging.info("Timetable is outdated, scraping new one")
+            timetable_dict = scrape_new_timetable((k, value),
+                                                    semester=semester)
+            message = compose_timetable(timetable_dict['timetable'], day)
+        redis_cache.set(key, message)
+        logging.info("Saved timetable %s to cache" % (key))
+        return message
 
 
 def update_user(user_id: int, group: str = None, teacher: str = None) -> None:

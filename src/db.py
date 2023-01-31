@@ -49,13 +49,13 @@ def get_redis_connection() -> redis.Redis:
 if __name__ == '__main__':
     users = get_users_collection()
     print(users.count_documents({}))
-    r = get_redis_connection()
-    r.set('test', 'test')
-    print(r.exists('test'))
-    groups_db = get_groups_collection()
-    result = groups_db.find({'$text': {'$search': 'СУЛА-308С'}})
-    for i in result:
-        print(i)
-    timetables_db = get_timetables_collection()
-    timetable_doc = timetables_db.find_one({"group": "СУЛА-308С"})
-    print(timetable_doc)
+    # r = get_redis_connection()
+    # r.set('test', 'test')
+    # print(r.exists('test'))
+    # groups_db = get_groups_collection()
+    # result = groups_db.find({'$text': {'$search': 'СУЛА-308С'}})
+    # for i in result:
+    #     print(i)
+    # timetables_db = get_timetables_collection()
+    # timetable_doc = timetables_db.find_one({"group": "СУЛА-308С"})
+    # print(timetable_doc)

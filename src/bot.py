@@ -15,10 +15,10 @@ from db import (
     get_users_collection,
 )
 from utils import (
-    compose_timetable,
-    scrape_new_timetable,
+    get_timetable,
     send_message_by_chunks,
     update_user,
+    get_ongoing_week
 )
 
 translator = Translator(to_lang="en")
@@ -223,42 +223,13 @@ async def day_input_callback(update: Update,
         logging.info("Entered day: %s" % (day))
         try:
             user = users_db.find_one({'user_id': update.effective_chat.id})
-            user.pop('_id')
-            user.pop('user_id')
-            user.pop('username')
-            semester = user.pop('semester')
-            k, value = list(user.items())[
-                0]  # can raise IndexError if user has no group or teacher
-            key = f'{"".join(value.lower().split())}_{semester}_{day.lower()}'
-            if r.exists(key):
-                message = r.get(key).decode('utf-8')
-                logging.info("Got timetable %s from cache" % (key))
-                if len(message) > MessageLimit.MAX_TEXT_LENGTH:
-                    await query.edit_message_text(text=_('Loading...'))
-                    await send_message_by_chunks(context.bot,
-                                                 update.effective_chat.id,
-                                                 message)
-                else:
-                    await query.edit_message_text(text=message)
-                return
-            timetable_doc = timetables_db.find_one({k: value})
-            last_updated = timetable_doc['last_updated']
-            message = compose_timetable(timetable_doc['timetable'], day)
-            if datetime.datetime.now() - last_updated > datetime.timedelta(
-                    hours=6):
-                logging.info("Timetable is outdated, scraping new one")
-                timetable_dict = scrape_new_timetable((k, value),
-                                                      semester=semester)
-                message = compose_timetable(timetable_dict['timetable'], day)
-
+            message = get_timetable(timetables_db=timetables_db,redis_cache=r,user=user, day=day)
             if len(message) > MessageLimit.MAX_TEXT_LENGTH:
                 await query.edit_message_text(text=_('Loading...'))
                 await send_message_by_chunks(context.bot,
                                              update.effective_chat.id, message)
             else:
                 await query.edit_message_text(text=message)
-            r.set(key, message)
-            logging.info("Saved timetable %s to cache" % (key))
             return
 
         except IndexError:
@@ -282,6 +253,18 @@ async def day_input_callback(update: Update,
                 text=_('Something went wrong. Try again'))
             return
 
+async def send_daily_timetable(context: ContextTypes.DEFAULT_TYPE):
+    day = DAYS[datetime.datetime.today().strftime('%A')]
+    week_message = get_ongoing_week()
+    users = users_db.find({'$or': [{'group': {'$exists': True}},{"teacher": {'$exists': True}}]})
+    for user in users:
+        user_id = user['user_id']
+        message = get_timetable(timetables_db=timetables_db,redis_cache=r,user=user, day=day)
+        message = f"{week_message}\nРасписание дня\n{message}"
+        if len(message) > MessageLimit.MAX_TEXT_LENGTH:
+            await send_message_by_chunks(context.bot, user_id, message)
+        else:
+            await context.bot.send_message(chat_id=user_id, text=message)
 
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
