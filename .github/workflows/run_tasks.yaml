@@ -1,11 +1,11 @@
 
 name: DB update
-# on:
+on:
   # push:
   #   branches:
   #     - main
-  # schedule:
-  #   - cron: '0 */5 * * *' # every 5 hours
+  schedule:
+    - cron: '0 */5 * * *' # every 5 hours
 
 jobs:
   build:
