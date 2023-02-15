@@ -14,12 +14,7 @@ from db import (
     get_timetables_collection,
     get_users_collection,
 )
-from utils import (
-    get_timetable,
-    send_message_by_chunks,
-    update_user,
-    get_ongoing_week
-)
+from utils import get_ongoing_week, get_timetable, send_message_by_chunks, update_user
 
 translator = Translator(to_lang="en")
 
@@ -223,7 +218,10 @@ async def day_input_callback(update: Update,
         logging.info("Entered day: %s" % (day))
         try:
             user = users_db.find_one({'user_id': update.effective_chat.id})
-            message = get_timetable(timetables_db=timetables_db,redis_cache=r,user=user, day=day)
+            message = get_timetable(timetables_db=timetables_db,
+                                    redis_cache=r,
+                                    user=user,
+                                    day=day)
             if len(message) > MessageLimit.MAX_TEXT_LENGTH:
                 await query.edit_message_text(text=_('Loading...'))
                 await send_message_by_chunks(context.bot,
@@ -253,18 +251,33 @@ async def day_input_callback(update: Update,
                 text=_('Something went wrong. Try again'))
             return
 
+
 async def send_daily_timetable(context: ContextTypes.DEFAULT_TYPE):
     day = DAYS[datetime.datetime.today().strftime('%A')]
     week_message = get_ongoing_week()
-    users = users_db.find({'$or': [{'group': {'$exists': True}},{"teacher": {'$exists': True}}]})
+    users = users_db.find({
+        '$or': [{
+            'group': {
+                '$exists': True
+            }
+        }, {
+            "teacher": {
+                '$exists': True
+            }
+        }]
+    })
     for user in users:
         user_id = user['user_id']
-        message = get_timetable(timetables_db=timetables_db,redis_cache=r,user=user, day=day)
+        message = get_timetable(timetables_db=timetables_db,
+                                redis_cache=r,
+                                user=user,
+                                day=day)
         message = f"{week_message}\nРасписание дня\n{message}"
         if len(message) > MessageLimit.MAX_TEXT_LENGTH:
             await send_message_by_chunks(context.bot, user_id, message)
         else:
             await context.bot.send_message(chat_id=user_id, text=message)
+
 
 async def language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -329,6 +342,9 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=_("Sorry, I didn't understand that message."))
-        
+
+
 async def maintenance(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'll be back soon.")
+    logging.info("Got interapted by %s" % (update.effective_chat.id))
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                   text=_("I'll be back soon.Keep in touch!"))

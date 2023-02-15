@@ -345,6 +345,6 @@ if __name__ == "__main__":
     # print(scraper.scrape_all())
 
     scraper2 = TimetableScraper2(semester=2)
-    # print(scraper2.get_timetable_dict(group=(1666, 'СУЛА-308С')))
+    print(scraper2.get_timetable_dict(group=(1666, 'СУЛА-308С')))
     # print(scraper2.get_list_of(teacher=True))
     print(scraper2.scrape_ongoing_week())

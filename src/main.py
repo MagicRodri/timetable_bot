@@ -1,5 +1,6 @@
-import logging
 import datetime
+import logging
+
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
@@ -16,16 +17,16 @@ from bot import (
     help,
     language,
     language_choice_callback,
+    maintenance,
     semester_choice,
     semester_choice_callback,
+    send_daily_timetable,
     start,
     teacher_input,
     teacher_input_callback,
     unknown,
-    send_daily_timetable,
-    maintenance
 )
-from config import DEBUG, PORT, SECRET_KEY, TG_TOKEN, URL,MAINTENANCE
+from config import DEBUG, MAINTENANCE, PORT, SECRET_KEY, TG_TOKEN, URL
 
 
 def main():
@@ -60,10 +61,11 @@ def main():
     help_handler = CommandHandler(command='help', callback=help)
     unknown_handler = MessageHandler(filters=filters.COMMAND | filters.TEXT,
                                      callback=unknown)
-    if MAINTENANCE:
-        maintenance_handler = MessageHandler(filters=filters.ALL,callback=maintenance)
-        app.add_error_handler(MessageHandler)
-    else:
+    maintenance_handler = MessageHandler(filters=filters.ALL,
+                                         callback=maintenance)
+    app.add_handler(language_handler)
+    app.add_handler(language_callback_handler, group=4)
+    if not MAINTENANCE:
         app.add_handler(start_handler)
         app.add_handler(semester_handler)
         app.add_handler(semester_callback_handler, group=2)
@@ -73,16 +75,18 @@ def main():
         app.add_handler(teacher_input_callback_handler, group=0)
         app.add_handler(day_input_handler)
         app.add_handler(day_input_callback_handler, group=3)
-        app.add_handler(language_handler)
-        app.add_handler(language_callback_handler, group=4)
         app.add_handler(help_handler)
         app.add_handler(unknown_handler)
+    else:
+        app.add_handler(maintenance_handler)
     job_queue = app.job_queue
     if DEBUG:
-        job_queue.run_daily(send_daily_timetable,time=datetime.time(hour=11, minute=35, second=0))
+        job_queue.run_daily(send_daily_timetable,
+                            time=datetime.time(hour=11, minute=35, second=0))
         app.run_polling()
     else:
-        job_queue.run_daily(send_daily_timetable,time=datetime.time(hour=1, minute=30, second=0))
+        job_queue.run_daily(send_daily_timetable,
+                            time=datetime.time(hour=1, minute=30, second=0))
         app.run_webhook(listen="0.0.0.0",
                         port=int(PORT),
                         webhook_url=URL,
