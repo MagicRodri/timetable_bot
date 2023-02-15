@@ -77,7 +77,7 @@ def main():
         app.add_handler(language_callback_handler, group=4)
         app.add_handler(help_handler)
         app.add_handler(unknown_handler)
-        job_queue = app.job_queue
+    job_queue = app.job_queue
     if DEBUG:
         job_queue.run_daily(send_daily_timetable,time=datetime.time(hour=11, minute=35, second=0))
         app.run_polling()
