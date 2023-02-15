@@ -1,6 +1,6 @@
 
 name: DB update
-on:
+# on:
   # push:
   #   branches:
   #     - main
