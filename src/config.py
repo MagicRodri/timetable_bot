@@ -9,7 +9,7 @@ load_dotenv(BASE_DIR / '.env')
 # GENERAL
 ACADEMIC_YEAR = "2022/2023"
 DEBUG = bool(int(os.getenv('DEBUG')))
-
+MAINTENANCE = bool(int(os.getenv('MAINTENANCE')))
 # Telegram
 TG_TOKEN = os.getenv('TG_TOKEN')
 SECRET_KEY = os.getenv('SECRET_KEY')

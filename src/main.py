@@ -22,9 +22,10 @@ from bot import (
     teacher_input,
     teacher_input_callback,
     unknown,
-    send_daily_timetable
+    send_daily_timetable,
+    maintenance
 )
-from config import DEBUG, PORT, SECRET_KEY, TG_TOKEN, URL
+from config import DEBUG, PORT, SECRET_KEY, TG_TOKEN, URL,MAINTENANCE
 
 
 def main():
@@ -59,21 +60,24 @@ def main():
     help_handler = CommandHandler(command='help', callback=help)
     unknown_handler = MessageHandler(filters=filters.COMMAND | filters.TEXT,
                                      callback=unknown)
-
-    app.add_handler(start_handler)
-    app.add_handler(semester_handler)
-    app.add_handler(semester_callback_handler, group=2)
-    app.add_handler(group_input_handler)
-    app.add_handler(group_input_callback_handler, group=1)
-    app.add_handler(teacher_input_handler)
-    app.add_handler(teacher_input_callback_handler, group=0)
-    app.add_handler(day_input_handler)
-    app.add_handler(day_input_callback_handler, group=3)
-    app.add_handler(language_handler)
-    app.add_handler(language_callback_handler, group=4)
-    app.add_handler(help_handler)
-    app.add_handler(unknown_handler)
-    job_queue = app.job_queue
+    if MAINTENANCE:
+        maintenance_handler = MessageHandler(filters=filters.ALL,callback=maintenance)
+        app.add_error_handler(MessageHandler)
+    else:
+        app.add_handler(start_handler)
+        app.add_handler(semester_handler)
+        app.add_handler(semester_callback_handler, group=2)
+        app.add_handler(group_input_handler)
+        app.add_handler(group_input_callback_handler, group=1)
+        app.add_handler(teacher_input_handler)
+        app.add_handler(teacher_input_callback_handler, group=0)
+        app.add_handler(day_input_handler)
+        app.add_handler(day_input_callback_handler, group=3)
+        app.add_handler(language_handler)
+        app.add_handler(language_callback_handler, group=4)
+        app.add_handler(help_handler)
+        app.add_handler(unknown_handler)
+        job_queue = app.job_queue
     if DEBUG:
         job_queue.run_daily(send_daily_timetable,time=datetime.time(hour=11, minute=35, second=0))
         app.run_polling()

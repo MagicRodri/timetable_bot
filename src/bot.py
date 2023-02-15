@@ -329,3 +329,6 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=_("Sorry, I didn't understand that message."))
+        
+async def maintenance(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'll be back soon.")
