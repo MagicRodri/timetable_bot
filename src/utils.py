@@ -1,8 +1,10 @@
-from typing import List
-import pymongo
 import datetime
 import logging
+from typing import Dict, List, Tuple
+
+import pymongo
 import redis
+
 from db import (
     get_groups_collection,
     get_teachers_collection,
@@ -11,11 +13,14 @@ from db import (
 )
 from timetable_scraper import TimetableScraper2
 
+
 def get_ongoing_week() -> str:
     """Returns the number of the ongoing week"""
     return TimetableScraper2(semester=2).scrape_ongoing_week()
 
-def compose_timetable(timetable_dict: dict, day: str) -> str:
+
+def compose_timetable(timetable_dict: Dict, day: str) -> str:
+    """Composes a timetable for a given day"""
     message = [day]
     for timetable_cell in timetable_dict[day]:
         if len(timetable_cell) <= 2:
@@ -28,13 +33,18 @@ def compose_timetable(timetable_dict: dict, day: str) -> str:
         return f"{day}: Нет пар "
     return "\n".join(message)
 
-def compose_timetables(timetable_dict: dict) -> List[str]:
+
+def compose_timetables(timetable_dict: Dict) -> List[str]:
+    """Composes a timetable for all days"""
     messages = []
     for day in timetable_dict:
         messages.append(compose_timetable(timetable_dict, day))
     return messages
 
-def get_timetable(timetables_db:pymongo.collection.Collection,redis_cache:redis.Redis,user,day:str) ->str:
+
+def get_timetable(timetables_db: pymongo.collection.Collection,
+                  redis_cache: redis.Redis, user: Dict, day: str) -> str:
+    """Returns a timetable for a given user and day"""
     user.pop('_id')
     user.pop('user_id')
     user.pop('username')
@@ -54,7 +64,7 @@ def get_timetable(timetables_db:pymongo.collection.Collection,redis_cache:redis.
                 hours=6):
             logging.info("Timetable is outdated, scraping new one")
             timetable_dict = scrape_new_timetable((k, value),
-                                                    semester=semester)
+                                                  semester=semester)
             message = compose_timetable(timetable_dict['timetable'], day)
         redis_cache.set(key, message)
         logging.info("Saved timetable %s to cache" % (key))
@@ -79,8 +89,7 @@ def update_user(user_id: int, group: str = None, teacher: str = None) -> None:
         'user_id': user_id,
         'semester': user_semester,
         **field
-    },
-                         upsert=True)
+    }, True)
 
 
 async def send_message(bot, chat_id, message):
@@ -94,7 +103,7 @@ async def send_message_by_chunks(bot, chat_id, message, chunk_size=4096):
         await bot.send_message(chat_id=chat_id, text=message[i:i + chunk_size])
 
 
-def scrape_new_timetable(query: tuple, semester: int) -> dict:
+def scrape_new_timetable(query: Tuple, semester: int) -> Dict:
     """Scrapes a new timetable"""
     scraper = TimetableScraper2(semester=semester)
     if query[0] == 'group':
